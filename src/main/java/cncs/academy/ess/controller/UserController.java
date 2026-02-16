@@ -10,6 +10,10 @@ import io.javalin.http.Context;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+// Novos imports necessários para a vulnerabilidade Zip Slip
+import java.io.*;
+import java.util.zip.*;
+import java.nio.file.*;
 import java.security.NoSuchAlgorithmException;
 
 public class UserController {
@@ -19,6 +23,39 @@ public class UserController {
 
     public UserController(TodoUserService userService) {
         this.userService = userService;
+    }
+
+    /**
+     * Ponto 2.f: Método vulnerável a Zip Slip (CWE-22)
+     * Este método recebe um ZIP e extrai o conteúdo sem validar os nomes dos ficheiros.
+     */
+    public void addProfilePicture(Context ctx) {
+        String userId = ctx.pathParam("userId");
+        String destinationDir = "/app/profiles/" + userId;
+        
+        log.info("Uploading profile pictures for user: {}", userId);
+
+        try (InputStream zipInput = ctx.uploadedFile("profileZip").content();
+             ZipInputStream zis = new ZipInputStream(zipInput)) {
+            
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                // VULNERABILIDADE: Uso direto de entry.getName() sem validação de ".."
+                // Um atacante pode enviar um ficheiro chamado "../../../etc/passwd"
+                File profilePic = new File(destinationDir, entry.getName());
+
+                // Cria as diretorias sem validar se saímos de /app/profiles/
+                profilePic.getParentFile().mkdirs();
+
+                // Extração insegura
+                Files.copy(zis, profilePic.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                zis.closeEntry();
+            }
+            ctx.status(200).json("Profile pictures uploaded successfully");
+        } catch (Exception e) {
+            log.error("Error in Zip Slip extraction: ", e);
+            ctx.status(500).result("Error uploading profile pictures");
+        }
     }
 
     public void createUser(Context ctx) throws NoSuchAlgorithmException {
@@ -57,4 +94,3 @@ public class UserController {
         }
     }
 }
-
