@@ -1,0 +1,15 @@
+p, Base, /todolist, POST
+p, Base, /todolist/*, GET
+p, Base, /todolist/*/task, POST
+p, Base, /todolist/*/task/*, POST
+p, Base, /todo/item, POST
+
+p, Share, /todolist/*/share, POST
+
+
+
+p, Admin, /user, POST
+p, Admin, /user/*, DELETE
+
+g, Share, Base
+g, Admin, Share
