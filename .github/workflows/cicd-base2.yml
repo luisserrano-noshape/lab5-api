@@ -54,7 +54,8 @@ jobs:
     permissions:
       contents: read
       packages: write
-      actions: write # Necessário para upload de artefactos
+      actions: write
+      id-token: write
 
     steps:
       - name: Checkout do código
