@@ -1,0 +1,35 @@
+name: CI-Security
+
+on: [push, workflow_dispatch] # Corre ao enviar código ou manualmente
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          
+      - name: Build and Test
+        run: mvn test 
+
+  analyze:
+    runs-on: ubuntu-latest
+    permissions: { security-events: write }
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Init CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+          
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+        
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
