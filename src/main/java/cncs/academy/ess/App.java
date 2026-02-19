@@ -44,8 +44,8 @@ public class App {
             config.registerPlugin(new SslPlugin(ssl -> {
 
                 ssl.pemFromPath(
-                        "/home/luis/Downloads/tasklist-phase2/cert.pem",
-                        "/home/luis/Downloads/tasklist-phase2/key.pem"
+                        "cert.pem",
+                        "key.pem"
                 );
                 ssl.sniHostCheck = false;
                 ssl.insecurePort = 8080;  // http://localhost:8080

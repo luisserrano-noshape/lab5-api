@@ -19,7 +19,7 @@ public class AuthorizationMiddleware implements Handler {
     public AuthorizationMiddleware(UserRepository userRepository) {
 
         this.userRepository = userRepository;
-        this.enforcer = new Enforcer("src/main/resources/model.conf", "src/main/resources/policy.csv");
+        this.enforcer = new Enforcer("model.conf", "policy.csv");
     }
 
     @Override
