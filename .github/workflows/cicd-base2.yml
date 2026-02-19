@@ -7,41 +7,32 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # JOB 1: Análise de Segurança (SAST)
+  # JOB 1: Análise de Segurança (SAST) - Mantém-se igual
   sec-scan:
     runs-on: ubuntu-latest
     permissions:
       security-events: write
       actions: read
       contents: read
-
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
-
       - name: Build e testes (JUnit)
         run: mvn clean test
-
-      # CodeQL - SAST
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: java
-
       - name: Build for CodeQL Analysis
         run: mvn clean compile
-
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
-
-      # Trivy
-      - name: Complete scan with Trivy
+      - name: Complete scan with Trivy (FS)
         uses: aquasecurity/trivy-action@0.20.0
         with:
           scan-type: 'fs'
@@ -49,25 +40,21 @@ jobs:
           severity: 'CRITICAL,HIGH'
           format: 'sarif'
           output: 'trivy-results.sarif'
-
+          exit-code: '1'
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4
+        if: always()
         with:
           sarif_file: trivy-results.sarif
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: trivy-result
-          path: trivy-results.sarif
-
-  # JOB 2: Construção e Publicação da Imagem
+  # JOB 2: Construção, Scan de Imagem e Publicação
   docker-publish:
-    needs: sec-scan  # O segundo job só arranca se o primeiro acabar com sucesso
+    needs: sec-scan
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+      actions: write # Necessário para upload de artefactos
 
     steps:
       - name: Checkout do código
@@ -92,6 +79,39 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
+      # --- INÍCIO DOS PASSOS DA ALÍNEA D) ---
+
+      # 1. Build local para scan (AMD64)
+      - name: Build Docker image for scan
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64
+          push: false   # Não envia ainda!
+          load: true    # Carrega a imagem no daemon local para o Trivy a ler
+
+      # 2. Scan da Imagem com Trivy
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ steps.meta.outputs.tags }}
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+
+      # 3. Upload do resultado do scan da imagem
+      - name: Upload artifact to pipeline metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: Generate artifact with Trivy image result
+          path: trivy-image-results.sarif
+
+      # --- FIM DOS PASSOS DA ALÍNEA D) ---
+
+      # Publicação final (Multi-arch) só ocorre se os passos acima passarem
       - name: Push Docker image (multi-arch)
         uses: docker/build-push-action@v5
         with:
