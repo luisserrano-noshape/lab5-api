@@ -1,4 +1,4 @@
-name: CI/CD security
+name: CI/CD security V2
 on:
   workflow_dispatch:
 
